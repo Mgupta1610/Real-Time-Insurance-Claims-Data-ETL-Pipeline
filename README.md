@@ -20,72 +20,64 @@ This project creates a **real-time ETL** pipeline to process insurance data from
 <img width="837" height="478" alt="Screenshot 2025-09-07 at 7 27 25 PM" src="https://github.com/user-attachments/assets/deb59bbc-6fea-4163-94f3-08b8744ac0d7" />
 ---
 
-## **ETL Workflow**
+## Tools and Services Used
+- Python: For scripting and data processing.
+- Pandas: For data manipulation and analysis.
+- AWS S3: As a data lake for storing raw and transformed data.
+- Snowflake: For data modeling and storage.
+- Apache Airflow: For orchestrating the ETL workflow.
+- EC2: For hosting the Airflow environment.
+- Kaggle API: For extracting data from Kaggle.
+- Tableau: For data visualization.
 
-### **Data Extraction**
-- Create an **Airflow DAG** that:
-  - Pulls a *random number of rows* from the Kaggle insurance dataset via the **Kaggle API**
-  - Cleans/normalizes/transforms into four normalized tables:
-    - `policy_data`
-    - `customers_data`
-    - `vehicles_data`
-    - `claims_data`
+## ETL Workflow
 
-### **Data Storage (S3)**
-- Write transformed outputs to **S3** with folder layout by entity:
-  - `s3://<bucket>/normalized/policy_data/…`
-  - `s3://<bucket>/normalized/customers_data/…`
-  - `s3://<bucket>/normalized/vehicles_data/…`
-  - `s3://<bucket>/normalized/claims_data/…`
+### Data Extraction
+- Create an Airflow DAG script to extract a random number of rows from the Kaggle insurance dataset using the Kaggle API.
+- Clean, normalize, and transform the data into four tables:
+  - policy_data
+  - customers_data
+  - vehicles_data
+  - claims_data
 
-### **Data Processing in Snowflake**
-1. Create Snowflake **database/schemas** (e.g., `STAGE`, `CORE`, `MART`) in SQL worksheets  
-2. Create **staging tables** for each normalized entity  
-3. Define **Snowpipes** to auto-ingest from the S3 folders into staging tables  
-4. Create **Streams** on each staging table to capture changes  
-5. Create **final (CORE)** tables and **MERGE** only distinct/new rows from the streams
+### Data Storage
+- Store the transformed data in S3 buckets, organized into different folders for each type of normalized data (policy_data, customers_data, vehicles_data, claims_data).
 
-### **Change Data Capture (Streams & Tasks)**
-- Define **Tasks** to run when stream changes are available, loading deltas into final tables automatically
+### Data Processing in Snowflake
+- Create Snowflake SQL worksheets to define database schemas.
+- Create staging tables in Snowflake for each type of normalized data.
+- Define Snowpipes to automate data ingestion from the S3 buckets to the staging tables.
+- Create stream objects for each staging table to capture changes.
+- Create final tables to merge new data from the stream objects, ensuring only distinct or new rows are inserted.
 
-### **Airflow DAG Tasks (example)**
-- **Task 1:** Check Kaggle API availability  
-- **Task 2:** Upload transformed artifacts to the target S3 bucket  
+### Change Data Capture with Snowflake Streams and Tasks
+- Create tasks in Snowflake to automate change data capture.
+- Each task is triggered when new data is available in the stream objects to load the data into the final tables.
 
----
+### Airflow DAG Tasks
+- Task 1: Check if the Kaggle API is available.
+- Task 2: Upload the transformed data to the S3 bucket.
 
-## **Setup Instructions**
+## Setup Instructions
 
-### **EC2 Instance Setup**
-1. Create an **Ubuntu `t2.small`** EC2 instance to host Airflow  
-2. Update the **security group** inbound rules to allow **TCP :8080** (Airflow Webserver)  
-3. **SSH** into the instance and install dependencies (see `how_to_run.docx`)  
-4. Create Python env and install **Airflow** + providers  
-5. Configure:
-   - Place `kaggle.json` in the expected path (per `how_to_run.docx`)
-   - Add your **DAG** file(s) under Airflow’s `dags/`
-6. Start Airflow components and open:  
-   `http://<EC2_PUBLIC_IPV4_DNS>:8080`
-7. Configure **Airflow Connections** (AWS/Snowflake) and **trigger** the DAG (per `how_to_run.docx`)
+### EC2 Instance Setup
+- Create an EC2 Ubuntu t2.small instance to host the Airflow environment.
+- Immediately after creating the instance, change inbound rules in the EC2 instance's security group to allow TCP traffic on port 8080. This allows access to the Airflow webserver.
+- SSH into the EC2 instance and install dependencies as detailed in how_to_run.docx.
+- Set up Python environment and install Airflow along with necessary dependencies.
+- Configuration: Insert kaggle.json and the DAG script as specified in how_to_run.docx.
+- Start Airflow components and access the Airflow webserver at <EC2 public IPV4 DNS>:8080.
+- Update Airflow connections and trigger the DAG as outlined in how_to_run.docx.
 
----
+## Running the Project
+- Once the cleaned data is stored in S3, it triggers other objects in Snowflake for further preprocessing to establish change data capture.
+- Access the Airflow webserver at <EC2 public IPV4 DNS>:8080 and trigger the DAG to start the ETL process.
 
-## **Running the Project**
-- On DAG trigger, cleaned data lands in **S3**, which in turn activates **Snowpipe/Streams/Tasks** for CDC and loading into final tables  
-- Access Airflow UI at:  
-  `http://<EC2_PUBLIC_IPV4_DNS>:8080`  
-- Manually **Trigger DAG** to validate end-to-end run
+## Data Visualization
+- Install the ODBC Snowflake driver to connect Tableau to Snowflake. Instructions for installing the driver can be found on the Snowflake documentation page.
+- Set up a live data visualization connection in Tableau to the final tables in Snowflake.
+- Use Tableau to analyze and visualize the final transformed data for insights and reporting.
 
----
+### Dashboard
+<img width="833" height="709" alt="Screenshot 2025-09-07 at 7 34 42 PM" src="https://github.com/user-attachments/assets/029af2c1-52c4-4c3d-b0a6-17b583da2458" />
 
-## **Data Visualization (Tableau)**
-1. Install **Snowflake ODBC driver** (see Snowflake docs for your OS)  
-2. In **Tableau**, connect to **Snowflake** (account/warehouse/db/schema)  
-3. Use the **final tables** (e.g., in `MART`) for modeling and visuals  
-4. Configure **Live** or **Scheduled Extract** refresh for near-real-time insights
-
-### **Dashboard**
-- Build dashboards on top of final curated tables (examples):
-  - **Claims Overview:** volumes, paid amounts, loss ratios  
-  - **Customer Segments:** tenure, premium bands, churn risk  
-  - **Operations:** pipeline latency, file freshness, failed loads
